@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -65,7 +70,7 @@ export class ProductsService {
         ...updateProductDto,
       });
       if (!product) {
-        throw new BadRequestException(`Product with id ${id} not found`);
+        throw new NotFoundException(`Product with id ${id} not found`);
       }
       await this.productRepository.save(product);
       return product;
