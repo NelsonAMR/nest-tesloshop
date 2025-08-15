@@ -81,34 +81,40 @@ export class ProductsService {
   async update(id: string, updateProductDto: UpdateProductDto) {
     const { images, ...toUpdate } = updateProductDto;
 
+    const product = await this.productRepository.preload({ id, ...toUpdate });
+
+    if (!product) {
+      throw new NotFoundException(`Product with id ${id} not found`);
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const product = await this.productRepository.preload({
-        id,
-        ...updateProductDto,
-        images: updateProductDto.images?.map((image) =>
+      if (images) {
+        await queryRunner.manager.delete(ProductImage, { product: { id } });
+        product.images = images.map((image) =>
           this.productImageRepository.create({ url: image }),
-        ),
-      });
-      if (!product) {
-        throw new NotFoundException(`Product with id ${id} not found`);
+        );
       }
 
-      const queryRunner = this.dataSource.createQueryRunner();
+      await queryRunner.manager.save(product);
+      await queryRunner.commitTransaction();
+      await queryRunner.release();
 
-      await this.productRepository.save(product);
-      return product;
+      return this.findOne(id);
     } catch (error) {
+      await queryRunner.rollbackTransaction();
+      await queryRunner.release();
       this.handleDBExceptions(error);
     }
   }
 
   async remove(id: string) {
-    try {
-      this.productRepository.delete({ id });
-      return { message: `Product with id ${id} deleted` };
-    } catch (error) {
-      this.handleDBExceptions(error);
-    }
+    const product = await this.findOne(id);
+    await this.productRepository.remove(product);
+    return 'Product removed successfully';
   }
 
   private handleDBExceptions(error: any) {
@@ -117,5 +123,14 @@ export class ProductsService {
     }
     this.logger.error(error);
     throw new BadRequestException('Unexpected error, check server logs');
+  }
+
+  async deleteAllProducts() {
+    const query = this.productRepository.createQueryBuilder('product');
+    try {
+      return await query.delete().where({}).execute();
+    } catch (error) {
+      this.handleDBExceptions(error);
+    }
   }
 }
