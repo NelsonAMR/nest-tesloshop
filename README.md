@@ -22,7 +22,13 @@ pnpm install
 docker-compose up -d
 ```
 
-6. Levantar servidor
+6. Ejecutar SEED para llenar BD
+
+```
+http://localhost:3000/api/seed
+```
+
+7. Levantar servidor
 
 ```
 pnpm start:dev
